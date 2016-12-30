@@ -119,7 +119,7 @@ function cider_add_js_for_repeatable_titles_to_footer() {
 				.on('keyup', replaceOnKeyUp);
 			replaceTitles();
 			// Hide the first generated empty item, add row and remove row
-			$('#cider_repeat_group_repeat').find('[data-iterator="0"],.cmb-add-row,button.cmb-remove-group-row').hide();
+			$('#cider_repeat_group_repeat').find('.cmb-add-row,button.cmb-remove-group-row').hide();
 		});
 	</script>
 	<?php

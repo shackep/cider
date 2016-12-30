@@ -19,6 +19,8 @@ if ( file_exists( plugin_dir_path( __FILE__ ) . '/meta-boxes/cider-meta.php' ) )
 	require_once( plugin_dir_path( __FILE__ ) . '/meta-boxes/cider-meta.php' );
 }
 
+// TODO: Look into meta parcer library https://github.com/jkphl/micrometa
+
 class ExternalMetaObject {
 	//Values needed to create object
 	public $_html;
@@ -93,6 +95,9 @@ class ExternalMetaObject {
 		$cider_meta['cider_link']        = esc_url( $this->url );
 		$this->json_ld_meta = $cider_meta;
 	}
+	// TODO: add schema scraper https://blog.scrapinghub.com/2014/06/18/extracting-schema-org-microdata-using-scrapy-selectors-and-xpath/
+
+	// TODO: add custom scraper that takes configurations from admin page
 
 	public function get_open_graph_meta() {
 		$html            = $this->_html;
