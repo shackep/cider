@@ -19,6 +19,8 @@ if ( file_exists( plugin_dir_path( __FILE__ ) . '/meta-boxes/cider-meta.php' ) )
 	require_once( plugin_dir_path( __FILE__ ) . '/meta-boxes/cider-meta.php' );
 }
 
+require_once( plugin_dir_path( __FILE__ ) . '/admin/cider_settings.php' );
+
 // TODO: Look into meta parcer library https://github.com/jkphl/micrometa
 
 class ExternalMetaObject {
@@ -42,6 +44,7 @@ class ExternalMetaObject {
 		$this->get_open_graph_meta();
 		$this->get_twitter_meta();
 		$this->get_jstor_meta();
+		$this->get_custom_meta();
 	}
 
 	public function set_default_values() {
@@ -184,6 +187,24 @@ class ExternalMetaObject {
 		$this->custom_meta               = $cider_meta;
 		$larb ='food';
 	}
+
+	public function get_custom_meta($url, $locators) {
+		if(!strpos( $this->url, '$locators[0]' )!==false){
+			return;
+		}
+		$html                            = $this->_html;
+		$html = str_get_html($html);
+		$larb ='food';
+		$cider_meta['cider_title']       = trim( $html->find( $locators[1], 0 )->plaintext );
+		$cider_meta['cider_contributor'] = trim( $html->find( $locators[2], 0 )->plaintext );
+		$cider_meta['cider_publication'] = trim( $html->find( $locators[3], 0 )->plaintext );
+		$cider_meta['cider_source']      = trim( $html->find( $locators[4], 0 )->plaintext );
+		$cider_meta['cider_publisher']   = trim( $html->find( $locators[5], 0 )->plaintext );
+		$cider_meta['cider_link']        = esc_url( $this->url );
+		$larb ='food';
+		$this->custom_meta               = $cider_meta;
+		$larb ='food';
+	}
 }
 
 class MetaUtilities {
@@ -191,6 +212,15 @@ class MetaUtilities {
 
 	public function __construct() {
 		$this->cider_meta = [];
+	}
+
+	public function get_mapped_sites(){
+		$options = get_option( cider_options );
+		$larb = 'food';
+		$settings = $options['cider_admin_repeat_group'];
+		$websites = array_column($settings, 'website');
+
+		return $websites;
 	}
 
 	public function check_content_for_external_urls( $post_id ) {
@@ -226,10 +256,11 @@ class MetaUtilities {
 }
 
 $obj  = new MetaUtilities;
-$post = get_post( 1 );
-$urls = $obj->check_content_for_external_urls( 1 );
+$websites = $obj->get_mapped_sites();
+//$post = get_post( 1 );
+//$urls = $obj->check_content_for_external_urls( 1 );
 $larb = 'food';
-$external_item = new ExternalMetaObject( 'https://medium.com/@ericclemmons/javascript-fatigue-48d4011b6fc4#.a1yvowlk8' );
+//$external_item = new ExternalMetaObject( 'https://medium.com/@ericclemmons/javascript-fatigue-48d4011b6fc4#.a1yvowlk8' );
 //$external_item = new ExternalMetaObject( 'https://aeon.co/ideas/how-refugees-have-the-power-to-change-the-society-they-join' );
 //$test = $external_item->get_best_meta_data();
 $larb = 'food';
