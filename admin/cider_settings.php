@@ -134,8 +134,8 @@ class Myprefix_Admin {
 			'options'     => array(
 				'group_title'   => __( 'Entry {#}', 'cmb2' ),
 				// since version 1.1.4, {#} gets replaced by row number
-				'add_button'    => __( 'Add Another Entry', 'cmb2' ),
-				'remove_button' => __( 'Remove Entry', 'cmb2' ),
+				'add_button'    => __( 'Map Another Website', 'cmb2' ),
+				'remove_button' => __( 'Remove Mapping', 'cmb2' ),
 				'sortable'      => TRUE,
 				// beta
 				'closed'        => TRUE,

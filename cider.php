@@ -23,6 +23,7 @@ require_once( plugin_dir_path( __FILE__ ) . '/admin/cider_settings.php' );
 
 // TODO: Look into meta parcer library https://github.com/jkphl/micrometa
 
+
 class ExternalMetaObject {
 	//Values needed to create object
 	public $_html;
@@ -30,6 +31,7 @@ class ExternalMetaObject {
 	public $source_xpath;
 
 	// Object Properties
+	public $image;
 	public $json_ld_meta;
 	public $schema_meta;
 	public $opem_graph_meta;
@@ -39,23 +41,36 @@ class ExternalMetaObject {
 	public function __construct( $url ) {
 		$this->url = $url;
 		$this->set_default_values();
+		if($this->image ==TRUE){
+			return;
+		}
 		$this->create_source_xpath();
 		$this->get_json_ld_meta();
 		$this->get_open_graph_meta();
 		$this->get_twitter_meta();
 		$this->get_jstor_meta();
-		$this->get_custom_meta();
+		//$this->get_custom_meta();
 	}
 
 	public function set_default_values() {
 		$url         = rtrim( $this->url, "/" );
-		$response    = wp_remote_get( $url );
-		$body        = wp_remote_retrieve_body( $response );
-		$html        = $body;
-		$this->_html = $html;
+		$response    = wp_remote_get( esc_url_raw($url) );
+		$type = wp_remote_retrieve_header( $response, 'content-type' );
+		$larb ='food';
+		if(strpos($type,'image')!==False){
+			$this->image = TRUE;
+		}
+		if ( ! is_wp_error( $response ) ) {
+			$body        = wp_remote_retrieve_body( $response );
+			$html        = $body;
+			$this->_html = $html;
+		}
 	}
 
 	public function get_best_meta_data() {
+		if($this->image == TRUE){
+			return;
+		}
 		if ( ! empty( $this->json_ld_meta ['cider_title'] ) ) {
 			$cider_meta = $this->json_ld_meta;
 		} elseif ( ! empty( $this->opem_graph_meta ['cider_title'] ) ) {
@@ -63,11 +78,10 @@ class ExternalMetaObject {
 		} elseif ( ! empty( $this->twitter_meta ['cider_title'] ) ) {
 			$cider_meta = $this->twitter_meta;
 		}
-		if(! empty ($this->custom_meta ['cider_title'])){
+		if ( ! empty ( $this->custom_meta ['cider_title'] ) ) {
 			$cider_meta = $this->custom_meta;
 		}
 		$larb = 'food';
-
 		return $cider_meta;
 	}
 
@@ -80,6 +94,16 @@ class ExternalMetaObject {
 		$this->source_xpath = $xpath;
 	}
 
+	public function has_custom_mapping( $url, $known_sites ){
+		$url_scheme =wp_parse_url($url, PHP_URL_SCHEME);
+		$host = wp_parse_url($url, PHP_URL_HOST);
+		$domain = $url_scheme.'//'.$host;
+		if( in_array( $domain, $known_sites )){
+			return TRUE;
+		}
+		return FALSE;
+	}
+
 	public function get_json_ld_meta() {
 		$xpath       = $this->source_xpath;
 		$jsonScripts = $xpath->query( '//script[@type="application/ld+json"]' );
@@ -88,7 +112,7 @@ class ExternalMetaObject {
 		}
 		$json                            = trim( $jsonScripts->item( 0 )->nodeValue );
 		$data                            = json_decode( $json );
-		$larb = 'food';
+		$larb                            = 'food';
 		$cider_meta['cider_title']       = trim( $data->headline );
 		$cider_meta['cider_contributor'] = trim( $data->author->name );
 		if ( empty( $cider_meta['cider_contributor'] ) ) {
@@ -96,7 +120,7 @@ class ExternalMetaObject {
 		}
 		$cider_meta['cider_publication'] = trim( $data->publisher->name );
 		$cider_meta['cider_link']        = esc_url( $this->url );
-		$this->json_ld_meta = $cider_meta;
+		$this->json_ld_meta              = $cider_meta;
 	}
 	// TODO: add schema scraper https://blog.scrapinghub.com/2014/06/18/extracting-schema-org-microdata-using-scrapy-selectors-and-xpath/
 
@@ -113,7 +137,7 @@ class ExternalMetaObject {
 			$content                      = $meta->getAttribute( 'content' );
 			$open_graph_meta[ $property ] = $content;
 		}
-		$open_graph_meta = array_filter( $open_graph_meta, function ( $og_meta ) {
+		$open_graph_meta                      = array_filter( $open_graph_meta, function ( $og_meta ) {
 			$allowed = [
 				'og:site_name',
 				'og:title',
@@ -163,11 +187,11 @@ class ExternalMetaObject {
 	}
 
 	public function get_jstor_meta() {
-		if(!strpos( $this->url, 'jstor.org/stable' )!==false){
+		if ( ! strpos( $this->url, 'jstor.org/stable' ) !== FALSE ) {
 			return;
 		}
 		$html                            = $this->_html;
-		$html = str_get_html($html);
+		$html                            = str_get_html( $html );
 		$locators                        = array(
 			'h1',
 			'.contrib',
@@ -176,51 +200,72 @@ class ExternalMetaObject {
 			'.publisher-link',
 			'.stable'
 		);
-		$larb ='food';
+		$larb                            = 'food';
 		$cider_meta['cider_title']       = trim( $html->find( $locators[0], 0 )->plaintext );
 		$cider_meta['cider_contributor'] = trim( $html->find( $locators[1], 0 )->plaintext );
 		$cider_meta['cider_publication'] = trim( $html->find( $locators[2], 0 )->plaintext );
 		$cider_meta['cider_source']      = trim( $html->find( $locators[3], 0 )->plaintext );
 		$cider_meta['cider_publisher']   = trim( $html->find( $locators[4], 0 )->plaintext );
 		$cider_meta['cider_link']        = esc_url( $this->url );
-		$larb ='food';
+		$larb                            = 'food';
 		$this->custom_meta               = $cider_meta;
-		$larb ='food';
+		$larb                            = 'food';
 	}
 
-	public function get_custom_meta($url, $locators) {
-		if(!strpos( $this->url, '$locators[0]' )!==false){
-			return;
-		}
-		$html                            = $this->_html;
-		$html = str_get_html($html);
-		$larb ='food';
-		$cider_meta['cider_title']       = trim( $html->find( $locators[1], 0 )->plaintext );
-		$cider_meta['cider_contributor'] = trim( $html->find( $locators[2], 0 )->plaintext );
-		$cider_meta['cider_publication'] = trim( $html->find( $locators[3], 0 )->plaintext );
-		$cider_meta['cider_source']      = trim( $html->find( $locators[4], 0 )->plaintext );
-		$cider_meta['cider_publisher']   = trim( $html->find( $locators[5], 0 )->plaintext );
-		$cider_meta['cider_link']        = esc_url( $this->url );
-		$larb ='food';
-		$this->custom_meta               = $cider_meta;
-		$larb ='food';
-	}
+//	public function get_custom_meta( $url, $locators ) {
+//		if ( ! strpos( $this->url, '$locators[0]' ) !== FALSE ) {
+//			return;
+//		}
+//		$html                            = $this->_html;
+//		$html                            = str_get_html( $html );
+//		$larb                            = 'food';
+//		$cider_meta['cider_title']       = trim( $html->find( $locators[1], 0 )->plaintext );
+//		$cider_meta['cider_contributor'] = trim( $html->find( $locators[2], 0 )->plaintext );
+//		$cider_meta['cider_publication'] = trim( $html->find( $locators[3], 0 )->plaintext );
+//		$cider_meta['cider_source']      = trim( $html->find( $locators[4], 0 )->plaintext );
+//		$cider_meta['cider_publisher']   = trim( $html->find( $locators[5], 0 )->plaintext );
+//		$cider_meta['cider_link']        = esc_url( $this->url );
+//		$larb                            = 'food';
+//		$this->custom_meta               = $cider_meta;
+//		$larb                            = 'food';
+//	}
 }
 
 class MetaUtilities {
 	public $cider_meta;
 
 	public function __construct() {
-		$this->cider_meta = [];
+		$this->cider_meta = [ ];
 	}
 
-	public function get_mapped_sites(){
-		$options = get_option( cider_options );
-		$larb = 'food';
+	public function get_mapped_sites() {
+		$options  = get_option( cider_options );
 		$settings = $options['cider_admin_repeat_group'];
-		$websites = array_column($settings, 'website');
+		$websites = array_column( $settings, 'website' );
+		$larb     = 'food';
 
 		return $websites;
+	}
+
+	public function array_value_recursive( $key, array $arr ) {
+		$val = array();
+		array_walk_recursive( $arr, function ( $v, $k ) use ( $key, &$val ) {
+			if ( $k == $key ) {
+				array_push( $val, $v );
+			}
+		} );
+
+		return count( $val ) > 1 ? $val : array_pop( $val );
+	}
+
+	public function get_selectors_for_site() {
+		$options        = get_option( cider_options );
+		$settings       = $options['cider_admin_repeat_group'];
+		$identify_array = array_combine( array_column( $settings, 'website' ), $settings );
+		$selectors      = $identify_array[ $this->url ];
+		$larb           = 'food';
+
+		return $selectors;
 	}
 
 	public function check_content_for_external_urls( $post_id ) {
@@ -255,8 +300,9 @@ class MetaUtilities {
 	}
 }
 
-$obj  = new MetaUtilities;
-$websites = $obj->get_mapped_sites();
+
+$obj      = new MetaUtilities;
+//$websites = $obj->get_mapped_sites();
 //$post = get_post( 1 );
 //$urls = $obj->check_content_for_external_urls( 1 );
 $larb = 'food';
@@ -275,6 +321,9 @@ function populate_cider_meta( $post_id ) {
 	$cider_meta = [ ];
 	array_filter( $urls, function ( $url ) use ( $post_id, $obj ) {
 		$source       = new ExternalMetaObject( $url );
+		if($source->image == TRUE ){
+			return;
+		}
 		$cider_meta[] = $source->get_best_meta_data();
 		$obj->set_cider_meta_value( $cider_meta );
 		$larb = 'food';
