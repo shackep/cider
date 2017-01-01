@@ -31,7 +31,7 @@ class ExternalMetaObject {
 	public $source_xpath;
 
 	// Object Properties
-	public $image;
+	public $fail;
 	public $json_ld_meta;
 	public $schema_meta;
 	public $opem_graph_meta;
@@ -41,7 +41,7 @@ class ExternalMetaObject {
 	public function __construct( $url ) {
 		$this->url = $url;
 		$this->set_default_values();
-		if($this->image ==TRUE){
+		if ( $this->fail == TRUE ) {
 			return;
 		}
 		$this->create_source_xpath();
@@ -53,18 +53,19 @@ class ExternalMetaObject {
 	}
 
 	public function set_default_values() {
-		$url         = rtrim( $this->url, "/" );
-		$response    = wp_remote_get( esc_url_raw($url) );
-		$type = wp_remote_retrieve_header( $response, 'content-type' );
-		$larb ='food';
-		if(strpos($type,'image')!==False){
-			$this->image = TRUE;
+		$url      = rtrim( $this->url, "/" );
+		$response = wp_remote_get( esc_url_raw( $url ) );
+		$type     = wp_remote_retrieve_header( $response, 'content-type' );
+		$larb     = 'food';
+		if ( strpos( $type, 'image' ) !== FALSE ) {
+			$this->fail = TRUE;
 		}
-		if ( ! is_wp_error( $response ) ) {
-			$body        = wp_remote_retrieve_body( $response );
-			$html        = $body;
-			$this->_html = $html;
+		if ( is_wp_error( $response ) ) {
+			$this->fail = TRUE;
 		}
+		$body        = wp_remote_retrieve_body( $response );
+		$html        = $body;
+		$this->_html = $html;
 	}
 
 	public function get_best_meta_data() {
@@ -78,6 +79,7 @@ class ExternalMetaObject {
 		if ( ! empty ( $this->custom_meta ['cider_title'] ) ) {
 			$cider_meta = $this->custom_meta;
 		}
+
 		return $cider_meta;
 	}
 
@@ -90,13 +92,14 @@ class ExternalMetaObject {
 		$this->source_xpath = $xpath;
 	}
 
-	public function has_custom_mapping( $url, $known_sites ){
-		$url_scheme =wp_parse_url($url, PHP_URL_SCHEME);
-		$host = wp_parse_url($url, PHP_URL_HOST);
-		$domain = $url_scheme.'//'.$host;
-		if( in_array( $domain, $known_sites )){
+	public function has_custom_mapping( $url, $known_sites ) {
+		$url_scheme = wp_parse_url( $url, PHP_URL_SCHEME );
+		$host       = wp_parse_url( $url, PHP_URL_HOST );
+		$domain     = $url_scheme . '//' . $host;
+		if ( in_array( $domain, $known_sites ) ) {
 			return TRUE;
 		}
+
 		return FALSE;
 	}
 
@@ -297,7 +300,7 @@ class MetaUtilities {
 }
 
 
-$obj      = new MetaUtilities;
+$obj = new MetaUtilities;
 //$websites = $obj->get_mapped_sites();
 //$post = get_post( 1 );
 //$urls = $obj->check_content_for_external_urls( 1 );
@@ -316,8 +319,8 @@ function populate_cider_meta( $post_id ) {
 	$urls       = $obj->check_content_for_external_urls( $post_id );
 	$cider_meta = [ ];
 	array_filter( $urls, function ( $url ) use ( $post_id, $obj ) {
-		$source       = new ExternalMetaObject( $url );
-		if($source->image == TRUE ){
+		$source = new ExternalMetaObject( $url );
+		if ( $source->fail == TRUE ) {
 			return;
 		}
 		$cider_meta[] = $source->get_best_meta_data();
