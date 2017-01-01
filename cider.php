@@ -32,6 +32,7 @@ class ExternalMetaObject {
 
 	// Object Properties
 	public $fail;
+	public $transient_id;
 	public $json_ld_meta;
 	public $schema_meta;
 	public $opem_graph_meta;
@@ -40,6 +41,7 @@ class ExternalMetaObject {
 
 	public function __construct( $url ) {
 		$this->url = $url;
+		$this->create_transient_id();
 		$this->set_default_values();
 		if ( $this->fail == TRUE ) {
 			return;
@@ -83,6 +85,11 @@ class ExternalMetaObject {
 		return $cider_meta;
 	}
 
+
+	public function create_transient_id() {
+		$this->transient_id = md5( $this->url );
+	}
+
 	public function create_source_xpath() {
 		$dom = new DOMDocument();
 		libxml_use_internal_errors( TRUE );
@@ -104,28 +111,38 @@ class ExternalMetaObject {
 	}
 
 	public function get_json_ld_meta() {
-		$xpath       = $this->source_xpath;
-		$jsonScripts = $xpath->query( '//script[@type="application/ld+json"]' );
-		if ( empty( $jsonScripts->length ) ) {
-			return FALSE;
+		$transient_key = $this->transient_id . '_json_ld';
+		$cider_meta    = get_transient( $transient_key );
+		if ( FALSE === $cider_meta ) {
+			$larb='food';
+			$xpath       = $this->source_xpath;
+			$jsonScripts = $xpath->query( '//script[@type="application/ld+json"]' );
+			if ( empty( $jsonScripts->length ) ) {
+				return FALSE;
+			}
+			$json                            = trim( $jsonScripts->item( 0 )->nodeValue );
+			$data                            = json_decode( $json );
+			$larb                            = 'food';
+			$cider_meta['cider_title']       = trim( $data->headline );
+			$cider_meta['cider_contributor'] = trim( $data->author->name );
+			if ( empty( $cider_meta['cider_contributor'] ) ) {
+				$cider_meta['cider_contributor'] = trim( $data->creator[0] );
+			}
+			$cider_meta['cider_publication'] = trim( $data->publisher->name );
+			$cider_meta['cider_link']        = esc_url( $this->url );
 		}
-		$json                            = trim( $jsonScripts->item( 0 )->nodeValue );
-		$data                            = json_decode( $json );
-		$larb                            = 'food';
-		$cider_meta['cider_title']       = trim( $data->headline );
-		$cider_meta['cider_contributor'] = trim( $data->author->name );
-		if ( empty( $cider_meta['cider_contributor'] ) ) {
-			$cider_meta['cider_contributor'] = trim( $data->creator[0] );
-		}
-		$cider_meta['cider_publication'] = trim( $data->publisher->name );
-		$cider_meta['cider_link']        = esc_url( $this->url );
-		$this->json_ld_meta              = $cider_meta;
+
+		$this->json_ld_meta = $cider_meta;
+		set_transient( $transient_key, $cider_meta, WEEK_IN_SECONDS );
 	}
 	// TODO: add schema scraper https://blog.scrapinghub.com/2014/06/18/extracting-schema-org-microdata-using-scrapy-selectors-and-xpath/
 
 	// TODO: add custom scraper that takes configurations from admin page
 
 	public function get_open_graph_meta() {
+		$transient_key = $this->transient_id . '_og_meta';
+		$open_graph_meta    = get_transient( $transient_key );
+		if ( FALSE === $open_graph_meta ) {
 		$html            = $this->_html;
 		$xpath           = $this->source_xpath;
 		$query           = '//*/meta[starts-with(@property, \'og:\')]';
@@ -154,10 +171,15 @@ class ExternalMetaObject {
 		unset( $open_graph_meta['og:title'] );
 		unset( $open_graph_meta['og:site_name'] );
 		unset( $open_graph_meta['og:url'] );
+		}
 		$this->opem_graph_meta = $open_graph_meta;
+		set_transient( $transient_key, $open_graph_meta, WEEK_IN_SECONDS );
 	}
 
 	public function get_twitter_meta() {
+		$transient_key = $this->transient_id . '_twitter_meta';
+		$twitter_meta    = get_transient( $transient_key );
+		if ( FALSE === $twitter_meta ) {
 		$html         = $this->_html;
 		$xpath        = $this->source_xpath;
 		$query        = '//*/meta[starts-with(@property, \'twitter:\')]';
@@ -181,14 +203,19 @@ class ExternalMetaObject {
 		$twitter_meta['cider_publication'] = $twitter_meta['twitter:site'];
 		$twitter_meta['cider_link']        = esc_url( $this->url );;
 		unset( $twitter_meta['twitter:title'] );
-		unset( $twitter_meta['twitter:site'] );
+		unset( $twitter_meta['twitter:site'] );}
+
 		$this->twitter_meta = $twitter_meta;
+		set_transient( $transient_key, $twitter_meta, WEEK_IN_SECONDS );
 	}
 
 	public function get_jstor_meta() {
 		if ( ! strpos( $this->url, 'jstor.org/stable' ) !== FALSE ) {
 			return;
 		}
+		$transient_key = $this->transient_id . '_jstor_meta';
+		$cider_meta    = get_transient( $transient_key );
+		if ( FALSE === $cider_meta ) {
 		$html                            = $this->_html;
 		$html                            = str_get_html( $html );
 		$locators                        = array(
@@ -206,9 +233,10 @@ class ExternalMetaObject {
 		$cider_meta['cider_source']      = trim( $html->find( $locators[3], 0 )->plaintext );
 		$cider_meta['cider_publisher']   = trim( $html->find( $locators[4], 0 )->plaintext );
 		$cider_meta['cider_link']        = esc_url( $this->url );
-		$larb                            = 'food';
+		}
 		$this->custom_meta               = $cider_meta;
-		$larb                            = 'food';
+		set_transient( $transient_key, $cider_meta, WEEK_IN_SECONDS );
+
 	}
 
 //	public function get_custom_meta( $url, $locators ) {
