@@ -68,9 +68,6 @@ class ExternalMetaObject {
 	}
 
 	public function get_best_meta_data() {
-		if($this->image == TRUE){
-			return;
-		}
 		if ( ! empty( $this->json_ld_meta ['cider_title'] ) ) {
 			$cider_meta = $this->json_ld_meta;
 		} elseif ( ! empty( $this->opem_graph_meta ['cider_title'] ) ) {
@@ -81,7 +78,6 @@ class ExternalMetaObject {
 		if ( ! empty ( $this->custom_meta ['cider_title'] ) ) {
 			$cider_meta = $this->custom_meta;
 		}
-		$larb = 'food';
 		return $cider_meta;
 	}
 
