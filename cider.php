@@ -55,6 +55,7 @@ class ExternalMetaObject {
 		if ( $this->_html != NULL ) {
 			return;
 		}
+		$larb     = 'food';
 			$this->fetch_external_resource();
 			$this->create_source_xpath();
 	}
@@ -133,9 +134,10 @@ class ExternalMetaObject {
 		$run_status    = $meta_type . 'run_' . $this->transient_id;
 		$has_it_run    = get_transient( $run_status );
 		$larb          = 'food';
-		if ( $has_it_run === FALSE && FALSE === $cider_meta ) {
-			$this->has_been_run;
+		if ( FALSE == $has_it_run && FALSE === $cider_meta ) {
+			$this->has_been_run($meta_type);
 			$this->make_the_api_call();
+			$larb ='food';
 			$xpath       = $this->source_xpath;
 			$jsonScripts = $xpath->query( '//script[@type="application/ld+json"]' );
 			if ( empty( $jsonScripts->length ) ) {
@@ -167,7 +169,7 @@ class ExternalMetaObject {
 		$has_it_run    = get_transient( $run_status );
 		$larb          = 'food';
 		if ( $has_it_run === FALSE && FALSE === $cider_meta ) {
-			$this->has_been_run;
+			$this->has_been_run($meta_type);
 			$this->make_the_api_call();
 			$xpath      = $this->source_xpath;
 			$query      = '//*/meta[starts-with(@property, \'og:\')]';
@@ -209,7 +211,7 @@ class ExternalMetaObject {
 		$has_it_run    = get_transient( $run_status );
 		$larb          = 'food';
 		if ( $has_it_run === FALSE && FALSE === $cider_meta ) {
-			$this->has_been_run;
+			$this->has_been_run($meta_type);
 			$this->make_the_api_call();
 			$xpath      = $this->source_xpath;
 			$query      = '//*/meta[starts-with(@property, \'twitter:\')]';
@@ -241,7 +243,7 @@ class ExternalMetaObject {
 	}
 
 	public function get_jstor_meta() {
-		if ( ! strpos( $this->url, 'jstor.org/stable' ) !== FALSE ) {
+		if ( !strpos( $this->url, 'jstor.org/stable' ) !== FALSE ) {
 			return;
 		}
 		$meta_type     = 'jstor_meta_';
@@ -250,8 +252,8 @@ class ExternalMetaObject {
 		$run_status    = $meta_type . 'run_' . $this->transient_id;
 		$has_it_run    = get_transient( $run_status );
 		$larb          = 'food';
-		if ( $has_it_run === FALSE && FALSE === $cider_meta ) {
-			$this->has_been_run;
+		if ( $has_it_run === FALSE || FALSE === $cider_meta ) {
+			$this->has_been_run($meta_type);
 			$this->make_the_api_call();
 			$html                            = $this->_html;
 			$html                            = str_get_html( $html );
