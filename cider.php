@@ -30,21 +30,20 @@ class ExternalMetaObject {
 	public $url;
 	public $source_xpath;
 
-	// Object Properties
+	// Object State
 	public $fail;
+	public $transient_id;
+
+	// Object Properties
 	public $json_ld_meta;
 	public $schema_meta;
 	public $opem_graph_meta;
-	public $twitter_meta;
+	public $cider_meta;
 	public $custom_meta;
 
 	public function __construct( $url ) {
 		$this->url = $url;
-		$this->set_default_values();
-		if ( $this->fail == TRUE ) {
-			return;
-		}
-		$this->create_source_xpath();
+		$this->create_transient_id();
 		$this->get_json_ld_meta();
 		$this->get_open_graph_meta();
 		$this->get_twitter_meta();
@@ -52,23 +51,37 @@ class ExternalMetaObject {
 		//$this->get_custom_meta();
 	}
 
-	public function set_default_values() {
+	public function make_the_api_call() {
+		if ( $this->_html != NULL ) {
+			return;
+		}
+			$this->fetch_external_resource();
+			$this->create_source_xpath();
+	}
+
+	public function create_transient_id() {
+		$this->transient_id = md5( $this->url );
+	}
+
+	public function fetch_external_resource() {
+		$larb     = 'food';
 		$url      = rtrim( $this->url, "/" );
 		$response = wp_remote_get( esc_url_raw( $url ) );
 		$type     = wp_remote_retrieve_header( $response, 'content-type' );
-		$larb     = 'food';
 		if ( strpos( $type, 'image' ) !== FALSE ) {
 			$this->fail = TRUE;
 		}
 		if ( is_wp_error( $response ) ) {
 			$this->fail = TRUE;
 		}
-		$body        = wp_remote_retrieve_body( $response );
-		$html        = $body;
+		$html        = wp_remote_retrieve_body( $response );
 		$this->_html = $html;
 	}
 
 	public function get_best_meta_data() {
+		if ( $this->fail == TRUE ) {
+			return;
+		}
 		if ( ! empty( $this->json_ld_meta ['cider_title'] ) ) {
 			$cider_meta = $this->json_ld_meta;
 		} elseif ( ! empty( $this->opem_graph_meta ['cider_title'] ) ) {
@@ -103,112 +116,162 @@ class ExternalMetaObject {
 		return FALSE;
 	}
 
+	public function has_been_run( $meta_type ) {
+		$run_status = $meta_type . 'run_' . $this->transient_id;
+		set_transient( $run_status, TRUE, WEEK_IN_SECONDS );
+	}
+
+	public function set_up_transient( $meta_type ) {
+		$transient_key = $meta_type . $this->transient_id;
+		$cider_meta    = get_transient( $transient_key );
+	}
+
 	public function get_json_ld_meta() {
-		$xpath       = $this->source_xpath;
-		$jsonScripts = $xpath->query( '//script[@type="application/ld+json"]' );
-		if ( empty( $jsonScripts->length ) ) {
-			return FALSE;
+		$meta_type     = 'json_ld_';
+		$transient_key = $meta_type . $this->transient_id;
+		$cider_meta    = get_transient( $transient_key );
+		$run_status    = $meta_type . 'run_' . $this->transient_id;
+		$has_it_run    = get_transient( $run_status );
+		$larb          = 'food';
+		if ( $has_it_run === FALSE && FALSE === $cider_meta ) {
+			$this->has_been_run;
+			$this->make_the_api_call();
+			$xpath       = $this->source_xpath;
+			$jsonScripts = $xpath->query( '//script[@type="application/ld+json"]' );
+			if ( empty( $jsonScripts->length ) ) {
+				return FALSE;
+			}
+			$json                            = trim( $jsonScripts->item( 0 )->nodeValue );
+			$data                            = json_decode( $json );
+			$cider_meta['cider_title']       = trim( $data->headline );
+			$cider_meta['cider_contributor'] = trim( $data->author->name );
+			if ( empty( $cider_meta['cider_contributor'] ) ) {
+				$cider_meta['cider_contributor'] = trim( $data->creator[0] );
+			}
+			$cider_meta['cider_publication'] = trim( $data->publisher->name );
+			$cider_meta['cider_link']        = esc_url( $this->url );
 		}
-		$json                            = trim( $jsonScripts->item( 0 )->nodeValue );
-		$data                            = json_decode( $json );
-		$larb                            = 'food';
-		$cider_meta['cider_title']       = trim( $data->headline );
-		$cider_meta['cider_contributor'] = trim( $data->author->name );
-		if ( empty( $cider_meta['cider_contributor'] ) ) {
-			$cider_meta['cider_contributor'] = trim( $data->creator[0] );
-		}
-		$cider_meta['cider_publication'] = trim( $data->publisher->name );
-		$cider_meta['cider_link']        = esc_url( $this->url );
-		$this->json_ld_meta              = $cider_meta;
+		$larb               = 'food';
+		$this->json_ld_meta = $cider_meta;
+		set_transient( $transient_key, $cider_meta, WEEK_IN_SECONDS );
 	}
 	// TODO: add schema scraper https://blog.scrapinghub.com/2014/06/18/extracting-schema-org-microdata-using-scrapy-selectors-and-xpath/
 
 	// TODO: add custom scraper that takes configurations from admin page
 
 	public function get_open_graph_meta() {
-		$html            = $this->_html;
-		$xpath           = $this->source_xpath;
-		$query           = '//*/meta[starts-with(@property, \'og:\')]';
-		$metas           = $xpath->query( $query );
-		$open_graph_meta = array();
-		foreach ( $metas as $meta ) {
-			$property                     = $meta->getAttribute( 'property' );
-			$content                      = $meta->getAttribute( 'content' );
-			$open_graph_meta[ $property ] = $content;
-		}
-		$open_graph_meta                      = array_filter( $open_graph_meta, function ( $og_meta ) {
-			$allowed = [
-				'og:site_name',
-				'og:title',
-				'og:url',
-				'article:author'
-			];
+		$meta_type     = 'og_meta_';
+		$transient_key = $meta_type . $this->transient_id;
+		$cider_meta    = get_transient( $transient_key );
+		$run_status    = $meta_type . 'run_' . $this->transient_id;
+		$has_it_run    = get_transient( $run_status );
+		$larb          = 'food';
+		if ( $has_it_run === FALSE && FALSE === $cider_meta ) {
+			$this->has_been_run;
+			$this->make_the_api_call();
+			$xpath      = $this->source_xpath;
+			$query      = '//*/meta[starts-with(@property, \'og:\')]';
+			$metas      = $xpath->query( $query );
+			$cider_meta = array();
+			foreach ( $metas as $meta ) {
+				$property                = $meta->getAttribute( 'property' );
+				$content                 = $meta->getAttribute( 'content' );
+				$cider_meta[ $property ] = $content;
+			}
+			$cider_meta                      = array_filter( $cider_meta, function ( $og_meta ) {
+				$allowed = [
+					'og:site_name',
+					'og:title',
+					'og:url',
+					'article:author'
+				];
 
-			return in_array( $og_meta, $allowed );
-		},
-			ARRAY_FILTER_USE_KEY
-		);
-		$open_graph_meta['cider_title']       = $open_graph_meta['og:title'];
-		$open_graph_meta['cider_publication'] = $open_graph_meta['og:site_name'];
-		$open_graph_meta['cider_link']        = $open_graph_meta['og:url'];
-		unset( $open_graph_meta['og:title'] );
-		unset( $open_graph_meta['og:site_name'] );
-		unset( $open_graph_meta['og:url'] );
-		$this->opem_graph_meta = $open_graph_meta;
+				return in_array( $og_meta, $allowed );
+			},
+				ARRAY_FILTER_USE_KEY
+			);
+			$cider_meta['cider_title']       = $cider_meta['og:title'];
+			$cider_meta['cider_publication'] = $cider_meta['og:site_name'];
+			$cider_meta['cider_link']        = $cider_meta['og:url'];
+			unset( $cider_meta['og:title'] );
+			unset( $cider_meta['og:site_name'] );
+			unset( $cider_meta['og:url'] );
+		}
+		$this->opem_graph_meta = $cider_meta;
+		set_transient( $transient_key, $cider_meta, WEEK_IN_SECONDS );
 	}
 
 	public function get_twitter_meta() {
-		$html         = $this->_html;
-		$xpath        = $this->source_xpath;
-		$query        = '//*/meta[starts-with(@property, \'twitter:\')]';
-		$metas        = $xpath->query( $query );
-		$twitter_meta = array();
+		$meta_type     = 'twitter_meta_';
+		$transient_key = $meta_type . $this->transient_id;
+		$cider_meta    = get_transient( $transient_key );
+		$run_status    = $meta_type . 'run_' . $this->transient_id;
+		$has_it_run    = get_transient( $run_status );
+		$larb          = 'food';
+		if ( $has_it_run === FALSE && FALSE === $cider_meta ) {
+			$this->has_been_run;
+			$this->make_the_api_call();
+			$xpath      = $this->source_xpath;
+			$query      = '//*/meta[starts-with(@property, \'twitter:\')]';
+			$metas      = $xpath->query( $query );
+			$cider_meta = array();
 
-		foreach ( $metas as $meta ) {
-			$property                  = $meta->getAttribute( 'property' );
-			$content                   = $meta->getAttribute( 'content' );
-			$twitter_meta[ $property ] = $content;
+			foreach ( $metas as $meta ) {
+				$property                = $meta->getAttribute( 'property' );
+				$content                 = $meta->getAttribute( 'content' );
+				$cider_meta[ $property ] = $content;
+			}
+			$cider_meta = array_filter( $cider_meta, function ( $twitter_meta ) {
+				$allowed = [ 'twitter:site', 'twitter:title' ];
+
+				return in_array( $twitter_meta, $allowed );
+			},
+				ARRAY_FILTER_USE_KEY
+			);
+
+			$cider_meta['cider_title']       = $cider_meta['twitter:title'];
+			$cider_meta['cider_publication'] = $cider_meta['twitter:site'];
+			$cider_meta['cider_link']        = esc_url( $this->url );;
+			unset( $cider_meta['twitter:title'] );
+			unset( $cider_meta['twitter:site'] );
 		}
-		$twitter_meta = array_filter( $twitter_meta, function ( $og_meta ) {
-			$allowed = [ 'twitter:site', 'twitter:title' ];
 
-			return in_array( $og_meta, $allowed );
-		},
-			ARRAY_FILTER_USE_KEY
-		);
-
-		$twitter_meta['cider_title']       = $twitter_meta['twitter:title'];
-		$twitter_meta['cider_publication'] = $twitter_meta['twitter:site'];
-		$twitter_meta['cider_link']        = esc_url( $this->url );;
-		unset( $twitter_meta['twitter:title'] );
-		unset( $twitter_meta['twitter:site'] );
-		$this->twitter_meta = $twitter_meta;
+		$this->twitter_meta = $cider_meta;
+		set_transient( $transient_key, $cider_meta, WEEK_IN_SECONDS );
 	}
 
 	public function get_jstor_meta() {
 		if ( ! strpos( $this->url, 'jstor.org/stable' ) !== FALSE ) {
 			return;
 		}
-		$html                            = $this->_html;
-		$html                            = str_get_html( $html );
-		$locators                        = array(
-			'h1',
-			'.contrib',
-			'.journal',
-			'.src',
-			'.publisher-link',
-			'.stable'
-		);
-		$larb                            = 'food';
-		$cider_meta['cider_title']       = trim( $html->find( $locators[0], 0 )->plaintext );
-		$cider_meta['cider_contributor'] = trim( $html->find( $locators[1], 0 )->plaintext );
-		$cider_meta['cider_publication'] = trim( $html->find( $locators[2], 0 )->plaintext );
-		$cider_meta['cider_source']      = trim( $html->find( $locators[3], 0 )->plaintext );
-		$cider_meta['cider_publisher']   = trim( $html->find( $locators[4], 0 )->plaintext );
-		$cider_meta['cider_link']        = esc_url( $this->url );
-		$larb                            = 'food';
-		$this->custom_meta               = $cider_meta;
-		$larb                            = 'food';
+		$meta_type     = 'jstor_meta_';
+		$transient_key = $meta_type . $this->transient_id;
+		$cider_meta    = get_transient( $transient_key );
+		$run_status    = $meta_type . 'run_' . $this->transient_id;
+		$has_it_run    = get_transient( $run_status );
+		$larb          = 'food';
+		if ( $has_it_run === FALSE && FALSE === $cider_meta ) {
+			$this->has_been_run;
+			$this->make_the_api_call();
+			$html                            = $this->_html;
+			$html                            = str_get_html( $html );
+			$locators                        = array(
+				'h1',
+				'.contrib',
+				'.journal',
+				'.src',
+				'.publisher-link',
+				'.stable'
+			);
+			$cider_meta['cider_title']       = trim( $html->find( $locators[0], 0 )->plaintext );
+			$cider_meta['cider_contributor'] = trim( $html->find( $locators[1], 0 )->plaintext );
+			$cider_meta['cider_publication'] = trim( $html->find( $locators[2], 0 )->plaintext );
+			$cider_meta['cider_source']      = trim( $html->find( $locators[3], 0 )->plaintext );
+			$cider_meta['cider_publisher']   = trim( $html->find( $locators[4], 0 )->plaintext );
+			$cider_meta['cider_link']        = esc_url( $this->url );
+		}
+		$this->custom_meta = $cider_meta;
+		set_transient( $transient_key, $cider_meta, WEEK_IN_SECONDS );
 	}
 
 //	public function get_custom_meta( $url, $locators ) {
@@ -217,16 +280,13 @@ class ExternalMetaObject {
 //		}
 //		$html                            = $this->_html;
 //		$html                            = str_get_html( $html );
-//		$larb                            = 'food';
 //		$cider_meta['cider_title']       = trim( $html->find( $locators[1], 0 )->plaintext );
 //		$cider_meta['cider_contributor'] = trim( $html->find( $locators[2], 0 )->plaintext );
 //		$cider_meta['cider_publication'] = trim( $html->find( $locators[3], 0 )->plaintext );
 //		$cider_meta['cider_source']      = trim( $html->find( $locators[4], 0 )->plaintext );
 //		$cider_meta['cider_publisher']   = trim( $html->find( $locators[5], 0 )->plaintext );
 //		$cider_meta['cider_link']        = esc_url( $this->url );
-//		$larb                            = 'food';
 //		$this->custom_meta               = $cider_meta;
-//		$larb                            = 'food';
 //	}
 }
 
@@ -241,7 +301,6 @@ class MetaUtilities {
 		$options  = get_option( cider_options );
 		$settings = $options['cider_admin_repeat_group'];
 		$websites = array_column( $settings, 'website' );
-		$larb     = 'food';
 
 		return $websites;
 	}
@@ -262,7 +321,6 @@ class MetaUtilities {
 		$settings       = $options['cider_admin_repeat_group'];
 		$identify_array = array_combine( array_column( $settings, 'website' ), $settings );
 		$selectors      = $identify_array[ $this->url ];
-		$larb           = 'food';
 
 		return $selectors;
 	}
@@ -271,8 +329,11 @@ class MetaUtilities {
 		$post     = get_post( $post_id );
 		$site_url = site_url();
 		$content  = $post->post_content;
+		if($content === ''){
+			return null;
+		}
 		$dom      = new DOMDocument();
-		@$dom->loadHTML( $post->post_content );
+		@$dom->loadHTML( $content );
 		$xpath = new DOMXPath( $dom );
 		$hrefs = $xpath->evaluate( "/html/body//a" );
 		for ( $i = 0; $i < $hrefs->length; $i ++ ) {
@@ -304,19 +365,19 @@ $obj = new MetaUtilities;
 //$websites = $obj->get_mapped_sites();
 //$post = get_post( 1 );
 //$urls = $obj->check_content_for_external_urls( 1 );
-$larb = 'food';
 //$external_item = new ExternalMetaObject( 'https://medium.com/@ericclemmons/javascript-fatigue-48d4011b6fc4#.a1yvowlk8' );
 //$external_item = new ExternalMetaObject( 'https://aeon.co/ideas/how-refugees-have-the-power-to-change-the-society-they-join' );
 //$test = $external_item->get_best_meta_data();
-$larb = 'food';
-//$external_item->set_default_values('www.jstor.org/stable/20020127');
+//$external_item->fetch_external_resource('www.jstor.org/stable/20020127');
 //$external_item->get_json_ld_meta();
 //$test = get_meta_tags('https://aeon.co/ideas/how-refugees-have-the-power-to-change-the-society-they-join');
 
 function populate_cider_meta( $post_id ) {
-	$larb       = 'food';
 	$obj        = new MetaUtilities;
 	$urls       = $obj->check_content_for_external_urls( $post_id );
+	if ($urls === null){
+		return;
+	}
 	$cider_meta = [ ];
 	array_filter( $urls, function ( $url ) use ( $post_id, $obj ) {
 		$source = new ExternalMetaObject( $url );
@@ -325,7 +386,6 @@ function populate_cider_meta( $post_id ) {
 		}
 		$cider_meta[] = $source->get_best_meta_data();
 		$obj->set_cider_meta_value( $cider_meta );
-		$larb = 'food';
 	} );
 	delete_post_meta( $post_id, 'cider_repeat_group' );
 	$final_value = $obj->get_cider_meta_value();
