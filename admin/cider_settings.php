@@ -131,19 +131,19 @@ class Myprefix_Admin {
 			'type'        => 'group',
 			'description' => __( 'Define selectors for specific websites', 'cmb2' ),
 			// 'repeatable'  => false, // use false if you want non-repeatable group
+			'after_group' => 'cider_add_admin_js',
 			'options'     => array(
-				'group_title'   => __( 'Entry {#}', 'cmb2' ),
+				'group_title'   => __( 'Website {#}', 'cmb2' ),
 				// since version 1.1.4, {#} gets replaced by row number
 				'add_button'    => __( 'Map Another Website', 'cmb2' ),
 				'remove_button' => __( 'Remove Mapping', 'cmb2' ),
-				'sortable'      => TRUE,
+				'sortable'      => FALSE,
 				// beta
 				'closed'        => TRUE,
 				// true to have the groups closed by default
 				'key'           => 'options-page',
 				'value'         => array( $this->key, )
 			),
-			'after_group' => 'cider_add_js_for_repeatable_titles',
 		) );
 
 // Id's for group's fields only need to be unique for the group. Prefix is not needed.
@@ -193,52 +193,13 @@ class Myprefix_Admin {
 		) );
 	}
 
-	function cider_add_js_for_repeatable_titles() {
-		add_action( 'admin_footer', 'cider_add_admin_js_for_repeatable_titles_to_footer' );
+	function cider_add_admin_js() {
+		add_action( 'admin_footer', 'cider_add_admin_js_to_footer' );
 	}
 
-// Populate field group label with contents of first field -> https://github.com/WebDevStudios/CMB2-Snippet-Library/blob/master/javascript/dynamically-change-group-field-title-from-subfield.php
-	function cider_add_admin_js_for_repeatable_titles_to_footer() {
-		?>
-		<script type="text/javascript">
-			jQuery(function ($) {
-				var $box = $(document.getElementById('cider_admin_repeat_group_repeat'));
-				var replaceTitles = function () {
-					$box.find('.cmb-group-title').each(function () {
-						var $this = $(this);
-						var txt = $this.next().find('[id$="title"]').val();
-						var rowindex;
-						if (!txt) {
-							txt = $box.find('[data-grouptitle]').data('grouptitle');
-							if (txt) {
-								rowindex = $this.parents('[data-iterator]').data('iterator');
-								txt = txt.replace('{#}', ( rowindex + 1 ));
-							}
-						}
-						if (txt) {
-							$this.text(txt);
-						}
-					});
-				};
-				var replaceOnKeyUp = function (evt) {
-					var $this = $(evt.target);
-					var id = 'title';
-					if (evt.target.id.indexOf(id, evt.target.id.length - id.length) !== -1) {
-						console.log('val', $this.val());
-						$this.parents('.cmb-row.cmb-repeatable-grouping').find('.cmb-group-title').text($this.val());
-					}
-				};
-				$box
-					.on('cmb2_add_row cmb2_shift_rows_complete', function (evt) {
-						replaceTitles();
-					})
-					.on('keyup', replaceOnKeyUp);
-				replaceTitles();
-				// Hide the first generated empty item, add row and remove row
-				$('#cider_repeat_group_repeat').find('.cmb-add-row,button.cmb-remove-group-row').hide();
-			});
-		</script>
-		<?php
+// Populate field group label with contents of first field, hide unused elements
+	function cider_add_admin_js_to_footer() {
+		wp_enqueue_script( 'cider-meta', plugins_url( '../js/cider_admin_meta.js' , __FILE__ ),'jquery'  );
 	}
 
 	/**

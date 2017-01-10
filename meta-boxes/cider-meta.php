@@ -2,11 +2,11 @@
 if ( file_exists( plugin_dir_path( __FILE__ ) . '../inc/cmb2/init.php' ) ) {
 	require_once( plugin_dir_path( __FILE__ ) . '../inc/cmb2/init.php' );
 }
-add_action( 'cmb2_admin_init', 'cmb2_sample_metaboxes' );
+add_action( 'cmb2_admin_init', 'cmb2_cider_admin_metaboxes' );
 /**
  * Define the metabox and field configurations.
  */
-function cmb2_sample_metaboxes() {
+function cmb2_cider_admin_metaboxes() {
 
 	// Start with an underscore to hide fields from custom fields list
 	$prefix = '_cider_';
@@ -77,50 +77,16 @@ function cmb2_sample_metaboxes() {
 
 }
 
+function cmb2_button_after_form() {
+	echo '<input name="update-citations" type="submit" class="button button-primary button-large" id="update-citations" value="Regenerate Citations">';
+}
+add_action( 'cmb2_after_post_form__cider_source_metabox', 'cmb2_button_after_form' );
+
 function cider_add_js_for_repeatable_titles() {
 	add_action( 'admin_footer', 'cider_add_js_for_repeatable_titles_to_footer' );
 }
 
-// Populate field group label with contents of first field
+// Populate field group label with contents of first field, hide unused elements
 function cider_add_js_for_repeatable_titles_to_footer() {
-	?>
-	<script type="text/javascript">
-		jQuery(function ($) {
-			var $box = $(document.getElementById('cider_repeat_group_repeat'));
-			var replaceTitles = function () {
-				$box.find('.cmb-group-title').each(function () {
-					var $this = $(this);
-					var txt = $this.next().find('[id$="title"]').val();
-					var rowindex;
-					if (!txt) {
-						txt = $box.find('[data-grouptitle]').data('grouptitle');
-						if (txt) {
-							rowindex = $this.parents('[data-iterator]').data('iterator');
-							txt = txt.replace('{#}', ( rowindex + 1 ));
-						}
-					}
-					if (txt) {
-						$this.text(txt);
-					}
-				});
-			};
-			var replaceOnKeyUp = function (evt) {
-				var $this = $(evt.target);
-				var id = 'title';
-				if (evt.target.id.indexOf(id, evt.target.id.length - id.length) !== -1) {
-					console.log('val', $this.val());
-					$this.parents('.cmb-row.cmb-repeatable-grouping').find('.cmb-group-title').text($this.val());
-				}
-			};
-			$box
-				.on('cmb2_add_row cmb2_shift_rows_complete', function (evt) {
-					replaceTitles();
-				})
-				.on('keyup', replaceOnKeyUp);
-			replaceTitles();
-			// Hide the first generated empty item, add row and remove row
-			$('#cider_repeat_group_repeat').find('.cmb-add-row,button.cmb-remove-group-row').hide();
-		});
-	</script>
-	<?php
+	wp_enqueue_script( 'cider-meta', plugins_url( '../js/cider_meta.js' , __FILE__ ),'jquery'  );
 }
