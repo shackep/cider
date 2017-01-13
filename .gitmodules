@@ -1,0 +1,9 @@
+[submodule "inc/CMB2"]
+	path = inc/CMB2
+	url = https://github.com/WebDevStudios/CMB2
+[submodule "lib/simplehtmldom"]
+	path = inc/simplehtmldom
+	url = https://github.com/jjanyan/Simple-HTML-DOM.git
+[submodule "inc/Simple-HTML-DOM"]
+	path = inc/Simple-HTML-DOM
+	url = https://github.com/jjanyan/Simple-HTML-DOM
