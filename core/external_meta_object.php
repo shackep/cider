@@ -1,4 +1,7 @@
 <?php
+if ( ! defined( 'ABSPATH' ) ) {
+	exit; // Exit if accessed directly
+}
 class ExternalMetaObject {
 	//Values needed to create object
 	public $_html;
