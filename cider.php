@@ -51,6 +51,7 @@ if ( ! class_exists( 'Cider' ) ) {
 			if ( $this->is_request( 'admin' ) ) {
 				require_once( plugin_dir_path( __FILE__ ) . '/admin/cider_settings.php' );
 				require_once( plugin_dir_path( __FILE__ ) . '/meta-boxes/cider-meta.php' );
+				require_once( plugin_dir_path( __FILE__ ) . '/inc/cmb2/init.php' );
 			}
 			if ( $this->is_request( 'frontend' ) ) {
 				//$this->frontend_includes();
