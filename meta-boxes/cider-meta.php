@@ -1,7 +1,4 @@
 <?php
-if ( file_exists( plugin_dir_path( __FILE__ ) . '../inc/cmb2/init.php' ) ) {
-	require_once( plugin_dir_path( __FILE__ ) . '../inc/cmb2/init.php' );
-}
 add_action( 'cmb2_admin_init', 'cmb2_cider_admin_metaboxes' );
 /**
  * Define the metabox and field configurations.
