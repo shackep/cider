@@ -7,3 +7,6 @@
 [submodule "inc/Simple-HTML-DOM"]
 	path = inc/Simple-HTML-DOM
 	url = https://github.com/jjanyan/Simple-HTML-DOM
+[submodule "inc/simplehtmldom"]
+	path = inc/simplehtmldom
+	url = https://github.com/jjanyan/Simple-HTML-DOM
