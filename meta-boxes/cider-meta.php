@@ -1,4 +1,7 @@
 <?php
+if ( ! defined( 'ABSPATH' ) ) {
+	exit; // Exit if accessed directly
+}
 add_action( 'cmb2_admin_init', 'cmb2_cider_admin_metaboxes' );
 /**
  * Define the metabox and field configurations.
