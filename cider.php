@@ -43,6 +43,9 @@ if ( ! class_exists( 'Cider' ) ) {
 			}
 		}
 
+		/**
+		 * Set up resources, classes and libraries.
+		 */
 		public function includes(){
 			require_once( plugin_dir_path( __FILE__ ) . '/inc/simplehtmldom/simple_html_dom.php' );
 			require_once( plugin_dir_path( __FILE__ ) . '/core/external_meta_object.php' );
@@ -69,6 +72,12 @@ $cider = new Cider();
 
 // TODO: Look into meta parcer library https://github.com/jkphl/micrometa
 
+/**
+ * Gets urls from current post.
+ * Gets best meta from each url and adds it to multidimensional array.
+ * Saves the final value to the repeater group for the post.
+ * @param $post_id
+ */
 function populate_cider_meta( $post_id ) {
 	$obj        = new MetaUtilities;
 	$urls       = $obj->check_content_for_external_urls( $post_id );

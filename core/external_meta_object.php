@@ -16,6 +16,11 @@ class ExternalMetaObject {
 	public $cider_meta;
 	public $custom_meta;
 
+	/**
+	 * ExternalMetaObject constructor.
+	 * Populates meta objects
+	 * @param $url
+	 */
 	public function __construct( $url ) {
 		$this->url = $url;
 		$this->create_transient_id();
@@ -26,6 +31,10 @@ class ExternalMetaObject {
 		//$this->get_custom_meta();
 	}
 
+	/**
+	 * Initiates http api requests if html has not been populated yet.
+	 * Also sets up xpath object for parsing
+	 */
 	public function make_the_api_call() {
 		if ( $this->_html != NULL ) {
 			return;
@@ -35,16 +44,21 @@ class ExternalMetaObject {
 		$this->create_source_xpath();
 	}
 
+	/**
+	 * Sets up transient id for requesting saved meta values. Unique transient is based on the URL of the http api request.
+	 */
 	public function create_transient_id() {
 		$this->transient_id = md5( $this->url );
 	}
 
+	/**
+	 * This fires the http api request and uses it to populate the $this->html value if it is html and a successful request.
+	 */
 	public function fetch_external_resource() {
-		$larb     = 'food';
 		$url      = rtrim( $this->url, "/" );
-		$response = wp_remote_get( esc_url_raw( $url ) );
+		$response = wp_safe_remote_get( esc_url_raw( $url ) );
 		$type     = wp_remote_retrieve_header( $response, 'content-type' );
-		if ( strpos( $type, 'html' ) == FALSE ) {
+		if ( strpos( $type, 'html' ) === FALSE ) {
 			$this->fail = TRUE;
 		}
 		if ( is_wp_error( $response ) ) {
@@ -54,6 +68,12 @@ class ExternalMetaObject {
 		$this->_html = $html;
 	}
 
+	/**
+	 * Populates cider meta with meta values collected.
+	 * Currently it is based on a hierarchy of quality, json-LD being the highest and twitter being the lowest.
+	 * This will be changed to merge data or account for other sources.
+	 * @return null|void
+	 */
 	public function get_best_meta_data() {
 		if ( $this->fail == TRUE ) {
 			return;
@@ -75,6 +95,10 @@ class ExternalMetaObject {
 		return $cider_meta;
 	}
 
+	/**
+	 * Creates the xpath object to be traversed with xpath to find meta data.
+	 * Done once to save resources and make things reusable.
+	 */
 	public function create_source_xpath() {
 		$dom = new DOMDocument();
 		libxml_use_internal_errors( TRUE );
@@ -84,6 +108,16 @@ class ExternalMetaObject {
 		$this->source_xpath = $xpath;
 	}
 
+	/**
+	 *
+	 * Filters out recognized sites.
+	 * Not Currently used. Will be used when users add custom mapping for specific sites.
+	 * Recognized sites will be handled using the custom meta handler.
+	 * @param $url
+	 * @param $known_sites
+	 *
+	 * @return bool
+	 */
 	public function has_custom_mapping( $url, $known_sites ) {
 		$url_scheme = wp_parse_url( $url, PHP_URL_SCHEME );
 		$host       = wp_parse_url( $url, PHP_URL_HOST );
@@ -95,16 +129,28 @@ class ExternalMetaObject {
 		return FALSE;
 	}
 
+	/**
+	 * Sets small transient to ensure the http api request only runs when there isn't one set.
+	 * @param $meta_type
+	 */
 	public function has_been_run( $meta_type ) {
 		$run_status = $meta_type . 'run_' . $this->transient_id;
 		set_transient( $run_status, TRUE, WEEK_IN_SECONDS );
 	}
 
+	/**
+	 * Used to set up transient for each meta property
+	 * @param $meta_type
+	 */
 	public function set_up_transient( $meta_type ) {
 		$transient_key = $meta_type . $this->transient_id;
 		$cider_meta    = get_transient( $transient_key );
 	}
 
+	/**
+	 * Extracts ld+json data and creates meta property. Stores it in a transient after it has run.
+	 * @return bool
+	 */
 	public function get_json_ld_meta() {
 		$meta_type     = 'json_ld_';
 		$transient_key = $meta_type . $this->transient_id;
@@ -139,6 +185,9 @@ class ExternalMetaObject {
 
 	// TODO: add custom scraper that takes configurations from admin page
 
+	/**
+	 * Extracts open graph meta data and creates meta property. Stores it in a transient after it has run.
+	 */
 	public function get_open_graph_meta() {
 		$meta_type     = 'og_meta_';
 		$transient_key = $meta_type . $this->transient_id;
@@ -180,7 +229,9 @@ class ExternalMetaObject {
 		$this->opem_graph_meta = $cider_meta;
 		set_transient( $transient_key, $cider_meta, WEEK_IN_SECONDS );
 	}
-
+	/**
+	 * Extracts twitter meta data and creates meta property. Stores it in a transient after it has run.
+	 */
 	public function get_twitter_meta() {
 		$meta_type     = 'twitter_meta_';
 		$transient_key = $meta_type . $this->transient_id;
@@ -220,6 +271,9 @@ class ExternalMetaObject {
 		set_transient( $transient_key, $cider_meta, WEEK_IN_SECONDS );
 	}
 
+	/**
+	 * Extracts jstor meta data and creates meta property. Stores it in a transient after it has run.
+	 */
 	public function get_jstor_meta() {
 		if ( !strpos( $this->url, 'jstor.org/stable' ) !== FALSE ) {
 			return;
